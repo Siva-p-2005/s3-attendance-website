@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Attendance App</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Poppins, Arial, sans-serif;
+            background: linear-gradient(135deg, #6a11cb, #2575fc);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .box {
+            width: 380px;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            display: none;
+            animation: fade 0.4s ease-in-out;
+        }
+        #loginBox { display: block; }
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-top: 12px;
+            border: 1px solid #bbb;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 18px;
+            background: #2575fc;
+            color: white;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        button:hover { background: #6a11cb; }
+        .success { color: green; font-weight: bold; }
+        .error { color: red; font-weight: bold; }
+        .request-box {
+            text-align: left;
+            padding: 10px;
+            background: #f2f2f2;
+            margin-top: 10px;
+            border-radius: 8px;
+        }
+        @keyframes fade {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+<div id="loginBox" class="box">
+    <h2>Attendance Login</h2>
+    <input id="loginID" placeholder="User ID">
+    <input id="loginPass" placeholder="Password" type="password">
+    <button onclick="login()">Login</button>
+    <p>
+        <b>Admin:</b> admin / admin123<br>
+        <b>Student:</b> s1 / pass1
+    </p>
+</div>
+
+<div id="adminPanel" class="box">
+    <h2>Admin Panel</h2>
+    <input id="placeName" placeholder="Location Name">
+    <input id="adminLat" placeholder="Latitude">
+    <input id="adminLon" placeholder="Longitude">
+    <input id="adminTime" placeholder="Allowed Time (HH:MM)">
+    <button onclick="saveAdminSettings()">Save Location</button>
+    <p id="adminMsg"></p>
+
+    <h3>Pending Requests</h3>
+    <div id="requestList"></div>
+
+    <button onclick="logout()" style="background:#ff4d4d;">Logout</button>
+</div>
+
+<div id="studentPanel" class="box">
+    <h2>Student Panel</h2>
+    <p id="studentLabel"></p>
+    <button onclick="sendRequest()">Request Attendance</button>
+    <p id="requestMsg"></p>
+    <button id="markBtn" onclick="markAttendance()" disabled>Mark Attendance</button>
+    <p id="attStatus"></p>
+    <button onclick="logout()" style="background:#ff4d4d;">Logout</button>
+</div>
+
+<script>
+const users = {
+    "admin": "admin123",
+    "s1": "pass1",
+    "s2": "pass2"
+};
+
+function login() {
+    let id = loginID.value;
+    let pass = loginPass.value;
+    if (!(id in users) || users[id] !== pass) {
+        alert("Invalid Login");
+        return;
+    }
+    localStorage.setItem("user", id);
+    loginBox.style.display = "none";
+    if (id === "admin") {
+        adminPanel.style.display = "block";
+        loadRequests();
+    } else {
+        studentPanel.style.display = "block";
+        studentLabel.innerHTML = "Welcome " + id;
+        checkApproval();
+    }
+}
+
+function saveAdminSettings() {
+    localStorage.setItem("placeName", placeName.value);
+    localStorage.setItem("lat", adminLat.value);
+    localStorage.setItem("lon", adminLon.value);
+    localStorage.setItem("time", adminTime.value);
+    adminMsg.innerHTML = "Location Saved ✔";
+    adminMsg.className = "success";
+}
+
+function sendRequest() {
+    let id = localStorage.getItem("user");
+    localStorage.setItem("req_" + id, "pending");
+    requestMsg.innerHTML = "Request Sent ✔";
+    requestMsg.className = "success";
+}
+
+function loadRequests() {
+    requestList.innerHTML = "";
+    for (let k in localStorage) {
+        if (k.startsWith("req_") && localStorage.getItem(k) === "pending") {
+            let student = k.replace("req_", "");
+            requestList.innerHTML += `
+                <div class="request-box">
+                    ${student}
+                    <button onclick="approve('${student}')">Approve</button>
+                </div>`;
+        }
+    }
+}
+
+function approve(student) {
+    localStorage.setItem("req_" + student, "approved");
+    loadRequests();
+}
+
+function checkApproval() {
+    let id = localStorage.getItem("user");
+    if (localStorage.getItem("req_" + id) === "approved") {
+        markBtn.disabled = false;
+        requestMsg.innerHTML = "Approved ✔";
+        requestMsg.className = "success";
+    }
+}
+
+function markAttendance() {
+    navigator.geolocation.getCurrentPosition(pos => {
+        let lat = pos.coords.latitude;
+        let lon = pos.coords.longitude;
+        let now = new Date();
+        let time = now.getHours().toString().padStart(2,'0') + ":" +
+                   now.getMinutes().toString().padStart(2,'0');
+
+        let result = "ABSENT ❌";
+        if (Math.abs(lat - localStorage.getItem("lat")) < 0.001 &&
+            Math.abs(lon - localStorage.getItem("lon")) < 0.001 &&
+            time === localStorage.getItem("time")) {
+            result = "PRESENT ✔";
+        }
+        attStatus.innerHTML = result;
+    });
+}
+
+function logout() {
+    localStorage.clear();
+    location.reload();
+}
+</script>
+
+</body>
+</html>
